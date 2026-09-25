@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f4f1e8" />
+  <title>Wordlings — Offline Whisper</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <main class="app-shell" aria-live="polite">
+    <section class="stage" id="stage" aria-label="Animated word playground">
+      <div class="ambient ambient-a"></div>
+      <div class="ambient ambient-b"></div>
+
+      <div class="tree tree-one" aria-hidden="true">
+        <span class="trunk"></span><span class="leaf leaf-1"></span><span class="leaf leaf-2"></span><span class="leaf leaf-3"></span><span class="leaf leaf-4"></span>
+      </div>
+      <div class="tree tree-two" aria-hidden="true">
+        <span class="trunk"></span><span class="leaf leaf-1"></span><span class="leaf leaf-2"></span><span class="leaf leaf-3"></span>
+      </div>
+
+      <div class="ground-hole" aria-hidden="true"></div>
+      <div class="word-layer" id="wordLayer"></div>
+
+      <div class="intro-card" id="introCard">
+        <div class="brand-mark" aria-hidden="true">Aa</div>
+        <p class="eyebrow">WORDLINGS · WHISPER</p>
+        <h1>Ucapkan satu kata.<br />Lihat hurufnya hidup.</h1>
+        <p class="intro-copy">Tekan mic, ucapkan satu kata Bahasa Indonesia. Rekaman berhenti otomatis saat kamu selesai bicara, lalu Whisper memprosesnya secara lokal.</p>
+        <button class="primary-button" id="startButton" type="button">
+          <span class="mic-icon" aria-hidden="true"></span>
+          Mulai bicara
+        </button>
+        <p class="engine-status" id="engineStatus">Mengecek Whisper lokal…</p>
+        <button class="text-button" id="demoButton" type="button">Coba demo “hutan”</button>
+      </div>
+
+      <div class="listening-panel" id="listeningPanel" hidden>
+        <p class="listening-label" id="listeningLabel">Dengarkan…</p>
+        <div class="mic-orb" id="micOrb" aria-hidden="true">
+          <span class="mic-core"></span>
+        </div>
+        <div class="meter" aria-hidden="true"><span id="meterFill"></span></div>
+        <p class="hint" id="listeningHint">Ucapkan satu kata. Akan berhenti otomatis setelah hening.</p>
+        <button class="secondary-button" id="stopButton" type="button">Selesai sekarang</button>
+        <button class="text-button" id="cancelButton" type="button">Batal</button>
+      </div>
+
+      <div class="processing-panel" id="processingPanel" hidden>
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="processing-title">Whisper sedang mendengar ulang…</p>
+        <p class="hint">Audio diproses di komputer ini.</p>
+      </div>
+
+      <div class="error-panel" id="errorPanel" hidden>
+        <p class="manual-title">Belum berhasil.</p>
+        <p class="manual-copy" id="errorText">Coba lagi.</p>
+        <button class="primary-button" id="retryButton" type="button">Coba bicara lagi</button>
+        <button class="text-button" id="errorBackButton" type="button">Kembali</button>
+      </div>
+
+      <div class="transcript-toast" id="transcriptToast" hidden>
+        <span>Whisper mendengar</span>
+        <strong id="transcriptText">hutan</strong>
+      </div>
+
+      <div class="bottom-controls" id="bottomControls" hidden>
+        <button class="round-button" id="speakAgainButton" aria-label="Ucapkan kata lain" title="Ucapkan kata lain"><span class="mic-dot"></span></button>
+        <button class="mini-button" id="clearButton" type="button">Bersihkan</button>
+      </div>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>
