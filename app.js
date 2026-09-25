@@ -24,9 +24,13 @@ const els = {
 };
 
 const palette = ['#6844c4', '#8f5aca', '#6f9d65', '#e3b918', '#d66b4c', '#4d87b7', '#bc5d93'];
-const MAX_RECORD_MS = 7000;
-const SILENCE_MS = 900;
-const SPEECH_THRESHOLD = 0.035;
+const MAX_RECORD_MS = 10000;
+const SILENCE_MS = 1100;
+// Browser mic levels vary a lot between Mac/Windows and between built-in/USB mics.
+// Use a low floor plus an adaptive threshold instead of one hard threshold.
+const MIN_SPEECH_THRESHOLD = 0.006;
+const MAX_SPEECH_THRESHOLD = 0.022;
+const NOISE_MULTIPLIER = 2.2;
 
 let groupCount = 0;
 let mediaRecorder = null;
@@ -39,6 +43,9 @@ let recordStartedAt = 0;
 let lastLoudAt = 0;
 let hasHeardSpeech = false;
 let cancelled = false;
+let noiseFloor = 0.003;
+let speechFrames = 0;
+let peakRms = 0;
 
 function setView(view) {
   els.introCard.hidden = view !== 'intro';
@@ -153,23 +160,48 @@ function stopRecording({ isCancel = false } = {}) {
 
 function watchSilence() {
   if (!analyser || !mediaRecorder || mediaRecorder.state !== 'recording') return;
+
   const bins = new Uint8Array(analyser.fftSize);
   analyser.getByteTimeDomainData(bins);
+
   let sum = 0;
   for (const value of bins) {
     const normalized = (value - 128) / 128;
     sum += normalized * normalized;
   }
+
   const rms = Math.sqrt(sum / bins.length);
-  const level = Math.min(1, rms * 8);
+  peakRms = Math.max(peakRms, rms);
+
+  // Learn the room/mic noise while speech has not been confirmed yet.
+  // Ignore louder frames so a word spoken immediately does not become the "noise floor".
+  if (!hasHeardSpeech && rms < 0.025) {
+    noiseFloor = noiseFloor * 0.96 + rms * 0.04;
+  }
+
+  const dynamicThreshold = Math.min(
+    MAX_SPEECH_THRESHOLD,
+    Math.max(MIN_SPEECH_THRESHOLD, noiseFloor * NOISE_MULTIPLIER + 0.0015)
+  );
+
+  // Visual meter is deliberately more sensitive than speech detection.
+  const level = Math.min(1, rms / Math.max(dynamicThreshold * 2.6, 0.02));
   els.meterFill.style.width = `${Math.max(4, level * 100)}%`;
   els.micOrb.style.setProperty('--level', String(level));
 
   const now = performance.now();
-  if (rms > SPEECH_THRESHOLD) {
+
+  if (rms > dynamicThreshold) {
+    speechFrames += 1;
+  } else {
+    speechFrames = Math.max(0, speechFrames - 1);
+  }
+
+  // A couple of consecutive loud frames is enough to count as speech.
+  if (speechFrames >= 2) {
     hasHeardSpeech = true;
     lastLoudAt = now;
-    els.listeningLabel.textContent = 'Ya, terus…';
+    els.listeningLabel.textContent = 'Ya, terdengar…';
     els.listeningHint.textContent = 'Berhenti bicara sebentar untuk mengirim.';
   }
 
@@ -177,10 +209,14 @@ function watchSilence() {
     stopRecording();
     return;
   }
+
+  // Even if browser-side VAD never triggers, still send the recording to Whisper.
+  // Whisper has its own VAD and is better at deciding whether speech is present.
   if (now - recordStartedAt > MAX_RECORD_MS) {
     stopRecording();
     return;
   }
+
   animationFrame = requestAnimationFrame(watchSilence);
 }
 
@@ -193,6 +229,9 @@ async function startRecording() {
     cancelled = false;
     recordedChunks = [];
     hasHeardSpeech = false;
+    speechFrames = 0;
+    noiseFloor = 0.003;
+    peakRms = 0;
     lastLoudAt = performance.now();
     recordStartedAt = performance.now();
     els.listeningLabel.textContent = 'Dengarkan…';
@@ -222,10 +261,13 @@ async function startRecording() {
         setView(groupCount ? 'none' : 'intro');
         return;
       }
-      if (!recordedChunks.length || !hasHeardSpeech) {
-        showError('Belum terdengar suara yang cukup jelas. Coba bicara sedikit lebih dekat ke microphone.');
+      if (!recordedChunks.length) {
+        showError('Tidak ada audio yang terekam. Coba cek izin microphone lalu ulangi.');
         return;
       }
+
+      // Do not reject audio just because the lightweight browser VAD missed it.
+      // Let Whisper's server-side VAD make the final decision.
       const blob = new Blob(recordedChunks, { type });
       await transcribe(blob, type);
     };
@@ -233,8 +275,8 @@ async function startRecording() {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioContext.createMediaStreamSource(audioStream);
     analyser = audioContext.createAnalyser();
-    analyser.fftSize = 1024;
-    analyser.smoothingTimeConstant = 0.55;
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.35;
     source.connect(analyser);
 
     mediaRecorder.start(180);
