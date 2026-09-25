@@ -23,7 +23,11 @@ const els = {
   clearButton: document.getElementById('clearButton'),
 };
 
-const palette = ['#6844c4', '#8f5aca', '#6f9d65', '#e3b918', '#d66b4c', '#4d87b7', '#bc5d93'];
+const palette = [
+  '#6844c4', '#8f5aca', '#6f9d65', '#e3b918', '#d66b4c', '#4d87b7',
+  '#bc5d93', '#2f9e8f', '#ef7f37', '#c94f63', '#548c45', '#3f6ec4'
+];
+const WORD_LIFETIME_SECONDS = 30;
 const MAX_RECORD_MS = 10000;
 const SILENCE_MS = 1100;
 // Browser mic levels vary a lot between Mac/Windows and between built-in/USB mics.
@@ -46,6 +50,7 @@ let cancelled = false;
 let noiseFloor = 0.003;
 let speechFrames = 0;
 let peakRms = 0;
+const activeWordTimers = new Set();
 
 function setView(view) {
   els.introCard.hidden = view !== 'intro';
@@ -78,6 +83,11 @@ function getPlacement(index) {
   return placements[index % placements.length];
 }
 
+function randomColor(exclude = null) {
+  const choices = exclude ? palette.filter(color => color !== exclude) : palette;
+  return choices[Math.floor(Math.random() * choices.length)];
+}
+
 function makeLetterCreature(char, color, index) {
   const node = document.createElement('div');
   node.className = 'letter-creature';
@@ -86,6 +96,40 @@ function makeLetterCreature(char, color, index) {
   node.style.setProperty('--letter-color', color);
   node.innerHTML = `<span class="letter-body">${char}</span><span class="leg left"></span><span class="leg right"></span>`;
   return node;
+}
+
+function scheduleWordExpiry(group) {
+  const countdown = document.createElement('div');
+  countdown.className = 'word-countdown';
+  countdown.setAttribute('aria-label', 'Sisa waktu kata');
+  group.appendChild(countdown);
+
+  let remaining = WORD_LIFETIME_SECONDS;
+  countdown.textContent = `${remaining}s`;
+
+  const timerRecord = { intervalId: null, removeId: null };
+  activeWordTimers.add(timerRecord);
+
+  timerRecord.intervalId = window.setInterval(() => {
+    if (!group.isConnected) {
+      window.clearInterval(timerRecord.intervalId);
+      activeWordTimers.delete(timerRecord);
+      return;
+    }
+
+    remaining -= 1;
+    countdown.textContent = `${Math.max(0, remaining)}s`;
+    countdown.classList.toggle('urgent', remaining <= 5);
+
+    if (remaining <= 0) {
+      window.clearInterval(timerRecord.intervalId);
+      group.classList.add('expiring');
+      timerRecord.removeId = window.setTimeout(() => {
+        group.remove();
+        activeWordTimers.delete(timerRecord);
+      }, 480);
+    }
+  }, 1000);
 }
 
 function spawnWord(rawWord) {
@@ -104,8 +148,15 @@ function spawnWord(rawWord) {
   group.style.left = `${Math.min(72, Math.max(4, placement.left + offsetX))}%`;
   group.style.top = `${Math.min(76, Math.max(12, placement.top + offsetY))}%`;
   group.style.setProperty('--drift-duration', `${8 + (groupCount % 5)}s`);
-  const color = palette[groupCount % palette.length];
-  [...word].forEach((char, index) => group.appendChild(makeLetterCreature(char, color, index)));
+
+  let previousColor = null;
+  [...word].forEach((char, index) => {
+    const color = randomColor(previousColor);
+    previousColor = color;
+    group.appendChild(makeLetterCreature(char, color, index));
+  });
+
+  scheduleWordExpiry(group);
   els.wordLayer.appendChild(group);
   groupCount += 1;
 }
@@ -324,6 +375,11 @@ els.cancelButton.addEventListener('click', () => stopRecording({ isCancel: true 
 els.errorBackButton.addEventListener('click', () => setView(groupCount ? 'none' : 'intro'));
 els.demoButton.addEventListener('click', () => spawnWord('hutan'));
 els.clearButton.addEventListener('click', () => {
+  activeWordTimers.forEach(timer => {
+    if (timer.intervalId) window.clearInterval(timer.intervalId);
+    if (timer.removeId) window.clearTimeout(timer.removeId);
+  });
+  activeWordTimers.clear();
   els.wordLayer.innerHTML = '';
   groupCount = 0;
   els.bottomControls.hidden = true;
