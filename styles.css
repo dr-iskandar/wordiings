@@ -45,7 +45,10 @@ h1 { margin:0; font-size:clamp(28px,8vw,42px); line-height:.98; letter-spacing:-
 .mic-dot { width:12px; height:16px; border-radius:8px; border:2px solid white; display:block; }
 .mini-button { min-height:44px; border-radius:999px; padding:0 18px; background:rgba(255,255,255,.85); backdrop-filter:blur(12px); font-weight:800; color:#4d4d46; box-shadow:0 8px 26px rgba(37,35,30,.12); }
 .word-layer { position:absolute; z-index:8; inset:0; pointer-events:none; }
-.word-group { position:absolute; display:flex; align-items:flex-end; gap:3px; transform-origin:center bottom; animation:groupDrift var(--drift-duration,11s) ease-in-out infinite alternate; }
+.word-group { position:absolute; display:flex; align-items:flex-end; gap:3px; transform-origin:center bottom; animation:groupDrift var(--drift-duration,11s) ease-in-out infinite alternate; transition:opacity .45s ease,filter .45s ease; }
+.word-group.expiring { opacity:0; filter:blur(5px); }
+.word-countdown { position:absolute; left:50%; top:-31px; transform:translateX(-50%); min-width:34px; height:22px; padding:0 8px; display:grid; place-items:center; border-radius:999px; background:rgba(255,255,255,.88); color:#5f6059; font-size:10px; line-height:1; font-weight:900; letter-spacing:.02em; box-shadow:0 5px 15px rgba(35,35,31,.10); backdrop-filter:blur(8px); transition:transform .2s ease,background .2s ease,color .2s ease; }
+.word-countdown.urgent { background:rgba(214,107,76,.94); color:#fff; transform:translateX(-50%) scale(1.08); }
 .letter-creature { position:relative; min-width:25px; height:47px; display:grid; place-items:end center; opacity:0; transform:translateY(-54px) rotate(var(--entry-rotate,-9deg)) scale(.8); animation:letterDrop .55s cubic-bezier(.2,.9,.25,1.25) forwards,bodyBob 1.05s ease-in-out infinite alternate; animation-delay:var(--delay),calc(var(--delay) + .55s); }
 .letter-body { position:relative; z-index:2; display:inline-block; color:var(--letter-color); font-size:clamp(28px,8vw,42px); font-weight:1000; line-height:.88; letter-spacing:-.12em; text-shadow:0 3px 0 color-mix(in srgb,var(--letter-color),black 14%); }
 .leg { position:absolute; bottom:-1px; width:5px; height:13px; border-radius:999px; background:color-mix(in srgb,var(--letter-color),black 34%); transform-origin:top center; animation:step .34s ease-in-out infinite alternate; }
